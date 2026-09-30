@@ -23,7 +23,11 @@ function Result($name, [bool]$ok, $detail = '') {
 # so the app is found by its path rather than as a child of the launched process.
 $InstalledAppDir = Join-Path $env:LOCALAPPDATA 'MermaidViewEdit\app'
 function Get-App {
-  @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($InstalledAppDir, [StringComparison]::OrdinalIgnoreCase) })
+  @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+      # Read Path once: a process can exit between two reads.
+      $path = try { $_.Path } catch { $null }
+      $path -and $path.StartsWith($InstalledAppDir, [StringComparison]::OrdinalIgnoreCase)
+    })
 }
 function Stop-App {
   Get-App | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue }

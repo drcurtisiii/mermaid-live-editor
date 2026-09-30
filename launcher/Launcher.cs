@@ -16,14 +16,23 @@ using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 internal static class Launcher
 {
     private const string AppName = "Mermaid View Edit";
     private const string InnerExe = "Mermaid View Edit.exe";
     private const string Marker = ".complete";
+    private const string ProgId = "MermaidViewEdit.Diagram";
+    // Offered under "Open with" for these types. Windows only lets the user
+    // choose the default ("Always use this app"); a program cannot set it.
+    private static readonly string[] Extensions = { ".mermaid", ".mmd", ".md" };
+
+    [DllImport("shell32.dll")]
+    private static extern void SHChangeNotify(int eventId, uint flags, IntPtr item1, IntPtr item2);
 
     private static string dataDir;
 
@@ -63,6 +72,7 @@ internal static class Launcher
                 }
             }
 
+            RegisterFileTypes(self);
             Prune(appRoot, installDir);
             return 0;
         }
@@ -299,6 +309,54 @@ internal static class Launcher
         catch (Exception error)
         {
             Log("prune: " + error.Message);
+        }
+    }
+
+    /// Per-user "Open with" registration (HKCU, no administrator rights). The
+    /// ProgID stays the same across versions and is re-pointed at whichever
+    /// release exe ran last, so the user's "always open with" choice keeps
+    /// working after an update.
+    private static void RegisterFileTypes(string self)
+    {
+        // Test runs use throwaway copies of the exe; never register those.
+        if (Environment.GetEnvironmentVariable("MVE_SMOKE_REPORT") != null)
+        {
+            return;
+        }
+        try
+        {
+            string classes = @"Software\Classes\";
+            bool changed = false;
+            changed |= SetValue(classes + ProgId, "", "Mermaid Diagram");
+            changed |= SetValue(classes + ProgId + @"\DefaultIcon", "", "\"" + self + "\",0");
+            changed |= SetValue(classes + ProgId + @"\shell\open", "FriendlyAppName", AppName);
+            changed |= SetValue(classes + ProgId + @"\shell\open\command", "", "\"" + self + "\" \"%1\"");
+            foreach (string extension in Extensions)
+            {
+                changed |= SetValue(classes + extension + @"\OpenWithProgids", ProgId, "");
+            }
+            if (changed)
+            {
+                SHChangeNotify(0x08000000, 0, IntPtr.Zero, IntPtr.Zero); // SHCNE_ASSOCCHANGED
+                Log("registered file types for " + self);
+            }
+        }
+        catch (Exception error)
+        {
+            Log("file type registration: " + error.Message);
+        }
+    }
+
+    private static bool SetValue(string keyPath, string name, string value)
+    {
+        using (RegistryKey key = Registry.CurrentUser.CreateSubKey(keyPath))
+        {
+            if (string.Equals(key.GetValue(name) as string, value, StringComparison.Ordinal))
+            {
+                return false;
+            }
+            key.SetValue(name, value, RegistryValueKind.String);
+            return true;
         }
     }
 

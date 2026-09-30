@@ -114,7 +114,7 @@ try {
   # Antivirus/Dropbox can briefly lock files in .svelte-kit; retry transient failures.
   for ($attempt = 1; ; $attempt++) {
     try { Invoke-Checked 'web build' { corepack pnpm exec vite build }; break }
-    catch { if ($attempt -ge 3) { throw }; Write-Host "Web build failed (attempt $attempt); retrying..."; Start-Sleep -Seconds 10 }
+    catch { if ($attempt -ge 6) { throw }; Write-Host "Web build failed (attempt $attempt); retrying..."; Start-Sleep -Seconds 15 }
   }
 
   $web = Join-Path $Desktop 'web'

@@ -40,6 +40,22 @@ developer tools), Help (Mermaid syntax reference, Check for Updates, Open Log Fo
 divider all the way left. The layout is remembered. **Full screen** (the ⤢ button at the top
 right of the diagram, or F11) shows only the diagram. Press Esc or the same button to exit.
 
+## Opening `.mermaid` files from Explorer
+
+Each time the app starts, it registers itself for the current Windows user as an **Open with**
+choice for `.mermaid`, `.mmd` and `.md` files. No administrator rights are needed. To make it the
+default for a type:
+
+1. Right-click a `.mermaid` file and choose **Open with > Choose another app**.
+2. Pick **Mermaid View Edit** and click **Always**.
+
+Windows only lets you make that choice; a program cannot set itself as the default. The choice
+carries over to new versions, because every version registers under the same name and points it
+at the exe that ran last. To remove the registration, delete these keys under
+`HKEY_CURRENT_USER\Software\Classes`: `MermaidViewEdit.Diagram`, and the
+`MermaidViewEdit.Diagram` value in `.mermaid\OpenWithProgids`, `.mmd\OpenWithProgids` and
+`.md\OpenWithProgids`.
+
 ## Application data and settings
 
 | What                                    | Where                                                                           |
@@ -146,7 +162,7 @@ To publish by hand: `.\scripts\publish-common.ps1 -ExePath ".\installer\Mermaid 
 ## Uninstall
 
 Delete the exe(s), the desktop shortcut(s) and `%LOCALAPPDATA%\MermaidViewEdit`. Versions 1.0.0
-and 1.1.0 also left `%TEMP%\MermaidViewEdit-*`. Nothing is registered with Windows.
+and 1.1.0 also left `%TEMP%\MermaidViewEdit-*`. Also remove the registry keys listed under "Opening `.mermaid` files from Explorer".
 
 ## SmartScreen and code signing
 
