@@ -3,6 +3,7 @@
   import { Button } from '$/components/ui/button';
   import { Separator } from '$/components/ui/separator';
   import type { PanZoomState } from '$/util/panZoom';
+  import CollapseIcon from '~icons/material-symbols/close-fullscreen-rounded';
   import ExpandIcon from '~icons/material-symbols/open-in-full-rounded';
   import ArrowsToCircleIcon from '~icons/material-symbols/screenshot-frame-2';
   import MagnifyingGlassPlusIcon from '~icons/material-symbols/zoom-in';
@@ -12,11 +13,17 @@
     /** Embed/narrow frames: keep zoom buttons visible below the `sm` breakpoint. */
     compact = false,
     fullScreenHref,
+    isFullScreen = false,
+    onFullScreen,
     panZoomState
   }: {
     compact?: boolean;
     /** When set, shows a "Full Screen" button linking here. Omit for store-free embeds. */
     fullScreenHref?: string;
+    /** Whether the in-page full screen (onFullScreen) is active. */
+    isFullScreen?: boolean;
+    /** When set, the "Full Screen" button toggles full screen in place instead of linking. */
+    onFullScreen?: () => void;
     panZoomState: PanZoomState;
   } = $props();
 
@@ -44,7 +51,16 @@
     onclick={() => panZoomState.zoomIn()}>
     <MagnifyingGlassPlusIcon />
   </Button>
-  {#if fullScreenHref}
+  {#if onFullScreen}
+    <Separator orientation="vertical" class={zoomClass} />
+    <Button
+      variant="ghost"
+      size="icon"
+      title={isFullScreen ? 'Exit Full Screen (Esc)' : 'Full Screen (F11)'}
+      onclick={onFullScreen}>
+      {#if isFullScreen}<CollapseIcon />{:else}<ExpandIcon />{/if}
+    </Button>
+  {:else if fullScreenHref}
     <Separator orientation="vertical" class={zoomClass} />
     <Button variant="ghost" size="icon" title="Full Screen" href={fullScreenHref} target="_blank">
       <ExpandIcon />

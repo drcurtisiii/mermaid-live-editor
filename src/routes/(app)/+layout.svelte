@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Toaster } from '$/components/ui/sonner/index.js';
   import { loadingState } from '$/util/loading.svelte';
+  import { isDesktop } from '$/util/desktop';
   import { toggleDarkTheme } from '$/util/state.svelte';
   import { initHandler } from '$/util/util';
   import { base } from '$app/paths';
@@ -20,7 +21,8 @@
       void initHandler();
     });
 
-    if ('serviceWorker' in navigator) {
+    // The desktop shell serves the app from disk; a service worker would only cache stale builds.
+    if (!isDesktop() && 'serviceWorker' in navigator) {
       navigator.serviceWorker
         .register(`${base}/service-worker.js`, { scope: `${base}/` })
         .then(function (registration) {

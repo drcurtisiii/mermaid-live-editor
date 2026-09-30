@@ -1,6 +1,7 @@
 <script lang="ts">
   import Actions from '$/components/Actions.svelte';
   import Card from '$/components/Card/Card.svelte';
+  import DesktopBridge from '$/components/DesktopBridge.svelte';
   import DiagramDocButton from '$/components/DiagramDocumentationButton.svelte';
   import Editor from '$/components/Editor.svelte';
   import EnhancedEditsButton from '$/components/EnhancedEditsButton.svelte';
@@ -22,6 +23,7 @@
   import VersionSecurityToolbar from '$/components/VersionSecurityToolbar.svelte';
   import View from '$/components/View.svelte';
   import type { EditorMode, Tab } from '$/types';
+  import { isDesktop, type DesktopCommand } from '$/util/desktop';
   import { shouldShowEditorChooser } from '$/util/migration/domainMigration';
   import { PanZoomState } from '$/util/panZoom';
   import { env } from '$/util/env';
@@ -31,6 +33,8 @@
   import { onMount } from 'svelte';
   import CodeIcon from '~icons/custom/code';
   import HistoryIcon from '~icons/material-symbols/history';
+  import PanelCloseIcon from '~icons/material-symbols/left-panel-close-rounded';
+  import PanelOpenIcon from '~icons/material-symbols/left-panel-open-rounded';
   import GearIcon from '~icons/material-symbols/settings-outline-rounded';
 
   const panZoomState = new PanZoomState();
@@ -58,9 +62,12 @@
   let isViewMode = $state(true);
   let showEditorChooser = $state(false);
 
+  const { promise: initialized, resolve: resolveInitialized } = Promise.withResolvers<boolean>();
+
   onMount(async () => {
-    showEditorChooser = shouldShowEditorChooser();
+    showEditorChooser = !isDesktop() && shouldShowEditorChooser();
     await initHandler();
+    resolveInitialized(true);
     window.addEventListener('appinstalled', () => {
       logEvent('pwaInstalled', { isMobile });
     });
@@ -77,6 +84,58 @@
       editorPane?.resize(50);
     }
   });
+
+  // Collapsible editor pane (the layout, including collapsed, is remembered via autoSaveId).
+  let isEditorCollapsed = $state(false);
+  const toggleEditor = () => {
+    if (editorPane?.isCollapsed()) {
+      editorPane.expand();
+    } else {
+      editorPane?.collapse();
+    }
+    // Re-center the diagram in the resized view.
+    setTimeout(() => panZoomState.reset(), 150);
+  };
+
+  // In-window full screen: diagram only, no navbar or editor. Esc or the button exits.
+  let isFullScreen = $state(false);
+  let collapsedBeforeFullScreen = false;
+  const toggleFullScreen = async () => {
+    await (document.fullscreenElement
+      ? document.exitFullscreen()
+      : document.documentElement.requestFullscreen());
+  };
+  const onFullScreenChange = () => {
+    const entering = Boolean(document.fullscreenElement);
+    if (entering === isFullScreen) {
+      return;
+    }
+    isFullScreen = entering;
+    if (entering) {
+      collapsedBeforeFullScreen = editorPane?.isCollapsed() ?? false;
+      editorPane?.collapse();
+    } else if (!collapsedBeforeFullScreen) {
+      editorPane?.expand();
+    }
+    setTimeout(() => panZoomState.reset(), 150);
+  };
+
+  onMount(() => {
+    document.addEventListener('fullscreenchange', onFullScreenChange);
+    if (isDesktop()) {
+      window.mveCommand = (command: DesktopCommand) => {
+        if (command === 'toggle-editor') {
+          toggleEditor();
+        } else {
+          void toggleFullScreen();
+        }
+      };
+    }
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullScreenChange);
+      window.mveCommand = undefined;
+    };
+  });
 </script>
 
 <div class="flex h-full flex-col overflow-hidden">
@@ -92,36 +151,38 @@
     </div>
   {/snippet}
 
-  <Navbar mobileToggle={isMobile ? mobileToggle : undefined}>
-    <Toggle bind:pressed={isHistoryOpen} size="sm" title="History" aria-label="History">
-      <HistoryIcon />
-    </Toggle>
-    <Share />
-    {#if env.isEnabledMermaidChartLinks}
-      <Separator orientation="vertical" />
-      <McWrapper labelPrefix="Opens ">
-        <Button
-          size="sm"
-          href={getContactSalesUrl()}
-          target="_blank"
-          onclick={() => logMermaidChartClick('contactSales')}>
-          <MermaidChartIcon />
-          Contact sales
-        </Button>
-      </McWrapper>
-      <McWrapper>
-        <Button
-          variant="accent"
-          size="sm"
-          href={urls.current.mermaidChart({ medium: 'save_diagram' }).save}
-          target="_blank"
-          onclick={() => logMermaidChartClick('saveDiagram')}>
-          <MermaidChartIcon />
-          Save diagram
-        </Button>
-      </McWrapper>
-    {/if}
-  </Navbar>
+  <div class="contents" class:hidden={isFullScreen}>
+    <Navbar mobileToggle={isMobile ? mobileToggle : undefined}>
+      <Toggle bind:pressed={isHistoryOpen} size="sm" title="History" aria-label="History">
+        <HistoryIcon />
+      </Toggle>
+      <Share />
+      {#if env.isEnabledMermaidChartLinks}
+        <Separator orientation="vertical" />
+        <McWrapper labelPrefix="Opens ">
+          <Button
+            size="sm"
+            href={getContactSalesUrl()}
+            target="_blank"
+            onclick={() => logMermaidChartClick('contactSales')}>
+            <MermaidChartIcon />
+            Contact sales
+          </Button>
+        </McWrapper>
+        <McWrapper>
+          <Button
+            variant="accent"
+            size="sm"
+            href={urls.current.mermaidChart({ medium: 'save_diagram' }).save}
+            target="_blank"
+            onclick={() => logMermaidChartClick('saveDiagram')}>
+            <MermaidChartIcon />
+            Save diagram
+          </Button>
+        </McWrapper>
+      {/if}
+    </Navbar>
+  </div>
 
   <div class="flex flex-1 flex-col overflow-hidden" bind:clientWidth={width}>
     <div
@@ -133,7 +194,14 @@
         direction="horizontal"
         autoSaveId="liveEditor"
         class="gap-4 p-2 pt-0 sm:gap-0 sm:p-6 sm:pt-0">
-        <Resizable.Pane bind:this={editorPane} defaultSize={30} minSize={15}>
+        <Resizable.Pane
+          bind:this={editorPane}
+          defaultSize={30}
+          minSize={15}
+          collapsible
+          collapsedSize={0}
+          onCollapse={() => (isEditorCollapsed = true)}
+          onExpand={() => (isEditorCollapsed = false)}>
           <div class="flex h-full flex-col gap-4 sm:gap-6">
             <Card
               onselect={tabSelectHandler}
@@ -158,8 +226,25 @@
           <View {panZoomState} shouldShowGrid={validatedState.current.grid} />
           <div class="absolute top-0 left-5 hidden md:block"><EnhancedEditsButton /></div>
           <div class="absolute top-0 right-0">
-            <PanZoomToolbar {panZoomState} fullScreenHref={urls.current.view} />
+            <PanZoomToolbar
+              {panZoomState}
+              fullScreenHref={urls.current.view}
+              {isFullScreen}
+              onFullScreen={isDesktop() ? () => void toggleFullScreen() : undefined} />
           </div>
+          {#if !isFullScreen}
+            <div class="absolute top-1/2 left-0 z-10 hidden -translate-y-1/2 sm:block">
+              <Button
+                variant="secondary"
+                size="icon"
+                class="h-10 w-6 rounded-l-none opacity-70 hover:opacity-100"
+                title={isEditorCollapsed ? 'Show editor (Ctrl+B)' : 'Hide editor (Ctrl+B)'}
+                aria-label={isEditorCollapsed ? 'Show editor' : 'Hide editor'}
+                onclick={toggleEditor}>
+                {#if isEditorCollapsed}<PanelOpenIcon />{:else}<PanelCloseIcon />{/if}
+              </Button>
+            </div>
+          {/if}
           <div class="absolute right-0 bottom-0"><VersionSecurityToolbar /></div>
           <div class="absolute bottom-0 left-0 sm:left-5"><SyncRoughToolbar /></div>
         </Resizable.Pane>
@@ -175,3 +260,4 @@
 </div>
 
 <EditorChooserModal bind:open={showEditorChooser} />
+<DesktopBridge {initialized} />

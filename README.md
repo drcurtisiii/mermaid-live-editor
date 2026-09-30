@@ -1,121 +1,162 @@
-[![Join our Discord!](https://img.shields.io/static/v1?message=join%20chat&color=9cf&logo=discord&label=discord)](https://discord.gg/sKeNQX4Wtj)
-[![Netlify Status](https://api.netlify.com/api/v1/badges/27fa023d-7c73-4a3f-9791-b3b657a47100/deploy-status)](https://app.netlify.com/sites/mermaidjs/deploys)
+# Mermaid View Edit
 
-# Mermaid Live Editor
+A Windows desktop app for viewing and editing [Mermaid](https://mermaid.js.org) diagrams with a
+live preview. It is the official open-source **Mermaid Live Editor** (forked from
+[mermaid-js/mermaid-live-editor](https://github.com/mermaid-js/mermaid-live-editor), MIT) in a
+portable Windows executable that opens and saves real files. The upstream README is kept in
+[README.upstream.md](README.upstream.md).
 
-Edit, preview and share mermaid charts/diagrams.
+## What it does
 
-## Features
+- Drag `.mmd`, `.mermaid`, `.md` or `.txt` files onto the desktop shortcut. Each file opens in its
+  own window with the code on the left and the rendered diagram on the right.
+- Edit with syntax highlighting, autocomplete and error markers. The preview updates as you type.
+- **Ctrl+S** saves back to the same file. The title bar shows `*` while there are unsaved changes.
+- In Markdown files, the ` ```mermaid ` block is edited in place and the rest of the file is
+  left as it was. If a file has several blocks, you pick which one to edit.
+- If the file changes on disk (Claude, Dropbox, another editor), the window reloads it
+  automatically. If you have unsaved edits, it asks first.
+- Export PNG/SVG from the **Actions** panel, or use **File > Export SVG**. Pan/zoom, the hand-drawn
+  style, themes, sample diagrams and the History timeline all work as they do upstream.
 
-- Edit and preview flowcharts, sequence diagrams, gantt diagrams in real time.
-- Save the result as a svg
-- Get a link to a viewer of the diagram so that you can share it with others.
-- Get a link to edit the diagram so that someone else can tweak it and send a new link back
+## System requirements
 
-## Live demo
+Windows 10 or 11, 64-bit. No installation, administrator rights or internet connection needed.
 
-You can try out a [live version](https://mermaid.live/).
+## First use and launch
 
-# Contributors are welcome!
+- Double-click the **Mermaid View Edit v1.0.0** desktop shortcut, or
+  `installer\Mermaid View Edit v1.0.0.exe`.
+- The first launch of each version shows a short "Setting up" window while it unpacks the app to
+  `%LOCALAPPDATA%\MermaidViewEdit\app` (about half a minute). Every later launch opens in about
+  a second.
+- Dropping files on the shortcut while the app is already open opens them in the running app.
 
-If you want to speed up the progress for mermaid-live-editor, join the Discord channel and contact knsv.
+**Menus:** File (New Window Ctrl+N, Open Ctrl+O, Open Recent, Save Ctrl+S, Save As Ctrl+Shift+S,
+Export SVG, Close Ctrl+W), Edit, View (Toggle Editor Pane Ctrl+B, Diagram Full Screen F11, zoom,
+developer tools), Help (Mermaid syntax reference, Check for Updates, Open Log Folder, About).
 
-## Docker
+**Hiding the editor:** click the tab on the left edge of the diagram, press Ctrl+B, or drag the
+divider all the way left. The layout is remembered. **Full screen** (the ⤢ button at the top
+right of the diagram, or F11) shows only the diagram. Press Esc or the same button to exit.
 
-### Run published image
+## Application data and settings
 
-```bash
-docker run --platform linux/amd64 --publish 8000:8080 ghcr.io/mermaid-js/mermaid-live-editor
+| What                                    | Where                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------------------- |
+| Settings (recent files, last folder)    | `%LOCALAPPDATA%\MermaidViewEdit\settings.json`                                  |
+| Editor state and History timeline       | `%LOCALAPPDATA%\MermaidViewEdit\browser\`                                       |
+| Logs                                    | `%LOCALAPPDATA%\MermaidViewEdit\logs\app.log` (rotates at 1 MB), `launcher.log` |
+| Unpacked app (about 400 MB per version) | `%LOCALAPPDATA%\MermaidViewEdit\app\<version>-<id>\`                            |
+
+- **Reset:** quit the app and delete `%LOCALAPPDATA%\MermaidViewEdit`.
+- **Unpacked copies:** when a version starts, it removes the unpacked copies of other versions
+  that are not running. The release exes themselves are never touched. Running an older exe
+  again simply unpacks it again.
+- **Backup:** copy that folder (the `app\` subfolder can be skipped). Your diagrams themselves stay wherever you saved them.
+- **Sensitive data:** the `browser\` folder holds the last diagram text and the History timeline,
+  so it may contain privileged content. Logs contain file paths but never diagram contents.
+
+## External services
+
+None are required. The desktop build turns off analytics, Mermaid Chart promotions, and the
+mermaid.ink / kroki.io share-link renderers, so diagram text is never uploaded by default. Links
+to documentation or GitHub open in your default browser only when you click them.
+
+## Updates
+
+The app looks for `latest.json` in `<folder containing the exe>\updates\`. It checks 15 seconds
+after start, then every 30 minutes, in the background. When a newer version is found and fully
+synced, it asks **"Version X is available. Install now?"** If you say yes, it:
+
+1. Verifies the file's size and SHA-256.
+2. Copies the new exe next to the current one under its versioned name. Nothing is overwritten.
+3. Creates a `Mermaid View Edit vX` desktop shortcut.
+4. Starts the new version, then closes the old one.
+
+If you have unsaved edits, it asks you to save them first. Files that are still syncing are
+skipped quietly and checked again later. SHA-256 catches corrupt or partial copies, but it is
+**not** a substitute for code signing.
+
+To read updates from another folder, create `update_config.json` next to the exe:
+
+```json
+{ "update_directory": "D:\\Path\\To\\Dropbox\\MermaidViewEdit\\updates" }
 ```
 
-The published docker image is built using our default environment variables. You cannot override them when running the image. If you need to customize them, you will need to build the image yourself.
+## Side-by-side releases and rollback
 
-### To configure renderer URL
+Every version is a separate `Mermaid View Edit vX.Y.Z.exe` with its own desktop shortcut. To roll
+back, run the older exe or shortcut. Settings are shared between versions.
 
-When building set the MERMAID_RENDERER_URL build argument to the rendering
-service.
-Example:
-Default is`https://mermaid.ink`.
-Set to empty string to disable PNG and SVG links under Actions
+## Building a new release
 
-### To configure Kroki Instance URL
+Prerequisites: Node.js 24+ (includes corepack/pnpm), .NET Framework 4.x (part of Windows; its C#
+compiler builds the launcher), Python 3 with Pillow (only for icon changes), and an internet
+connection for the first dependency download.
 
-When building set the MERMAID_KROKI_RENDERER_URL build argument to your Kroki
-instance.
-Default is `https://kroki.io`
-Set to empty string to disable Kroki link under Actions
+1. Make the change.
+2. Increase `"version"` in `desktop\package.json`. This is the only version source.
+3. Run `.\build.ps1 -ReleaseNotes "What changed"` from PowerShell.
+4. Answer the Common Software question. The default is **No**.
 
-### To configure Analytics
+`build.ps1` installs the locked dependencies, builds the editor, runs all tests, packages the exe,
+verifies the copies in `installer\` and `updates\`, writes `updates\latest.json` last, and creates
+the desktop shortcut. It refuses to overwrite an existing version.
 
-When building set the MERMAID_ANALYTICS_URL build argument to your plausible instance, and MERMAID_DOMAIN to your domain.
+Release smoke test: `.\scripts\smoke-test.ps1`. It launches the real exe and the shortcut with
+test files, checks the manifest, icon, shortcut and error handling, and runs a Defender scan.
 
-Default is empty, disabling analytics.
+## Dependency maintenance
 
-### To enable Mermaid Chart links and promotion
+- Web app: `corepack pnpm install`, then commit `pnpm-lock.yaml`.
+- Desktop: `cd desktop; npm install electron@<ver> electron-builder@<ver> --save-exact`.
+- Pull upstream editor changes: `git fetch upstream; git merge upstream/master`. Desktop changes
+  touch only a few upstream files, so conflicts should be rare.
 
-When building set the MERMAID_IS_ENABLED_MERMAID_CHART_LINKS build argument to `true`
+## Icon
 
-Default is empty, disabling button to save to Mermaid Chart and promotional banner.
+The source is `assets\make_icon.py`. Edit it and run `python assets\make_icon.py` to regenerate
+`assets\app.ico` (16–256 px) and `assets\app-icon-preview.png`.
 
-### To update the Security modal
+## Common Software publication
 
-The modal shown on clicking the security link assumes analytics, renderer, Kroki
-and Mermaid chart are enabled. You can update it by modifying `Privacy.svelte`
-if you wish.
+After a build, `build.ps1` asks whether to publish to
+`D:\Curtis Law Firm Dropbox\Curtis Law Firm Team Folder\Common Software`. Only `y` or `yes`
+approves; anything else leaves the folder untouched. On approval, `scripts\publish-common.ps1`:
 
-### Development
+- copies the exe to a temp name and verifies it, then renames it into place;
+- only after that, deletes files there named exactly `Mermaid View Edit v<semver>.exe`, other than
+  the new one;
+- never deletes folders, shortcuts, other apps, or anything outside that folder.
 
-```bash
-docker compose up --build
-```
+To publish by hand: `.\scripts\publish-common.ps1 -ExePath ".\installer\Mermaid View Edit vX.Y.Z.exe"`.
 
-Then open http://localhost:3000
+## Troubleshooting
 
-### Building and running images locally
+- **Help > Open Log Folder** shows `app.log`.
+- **"Unsupported file type"**: rename the file to `.mmd` or `.mermaid`.
+- **Markdown file won't open**: it needs a ` ```mermaid ` fenced block.
+- **Diagram shows an error**: the error message is under the preview. The line is marked in the
+  editor.
+- **Update not offered**: check that `updates\latest.json` and the exe have finished syncing, and
+  check the log for `update:` lines.
+- **Blank window**: delete `%LOCALAPPDATA%\MermaidViewEdit\browser` and restart.
 
-#### Build
+## Uninstall
 
-```bash
-docker build -t mermaid-js/mermaid-live-editor .
-```
+Delete the exe(s), the desktop shortcut(s) and `%LOCALAPPDATA%\MermaidViewEdit`. Versions 1.0.0
+and 1.1.0 also left `%TEMP%\MermaidViewEdit-*`. Nothing is registered with Windows.
 
-#### Run
+## SmartScreen and code signing
 
-```bash
-docker run --detach --name mermaid-live-editor --publish 8080:8080 mermaid-js/mermaid-live-editor
-```
+The exe is unsigned. Windows SmartScreen may show "Windows protected your PC" the first time. Click
+**More info > Run anyway** only for copies from the firm's own folders. An Authenticode
+certificate would remove the warning, prove who published the file, and let updates be checked by
+signature instead of checksum alone.
 
-Visit: <http://localhost:8080>
+## Credentials
 
-#### Stop
-
-```bash
-docker stop mermaid-live-editor
-```
-
-## Setup
-
-Below link will help you making a copy of the repository in your local system.
-
-https://docs.github.com/en/get-started/quickstart/fork-a-repo
-
-## Requirements
-
-- [Node.js](https://nodejs.org/en/) current LTS version
-- [pnpm](https://pnpm.io/) package manager. Install with `corepack enable pnpm`
-
-## Development
-
-```sh
-pnpm install
-pnpm dev -- --open
-```
-
-This app is created with Svelte Kit.
-
-## Release
-
-When a PR is created targeting master, it will be built and deployed by Netlify.
-The URL will be indicated in a Comment in the PR.
-
-Once the PR is merged, it will automatically be released.
+The app needs no credentials, and none are embedded in it. Anything placed in an exe can be
+extracted by anyone who has a copy, so secrets must never be built in. If a future feature needs
+one, use Windows Credential Manager or an environment variable.

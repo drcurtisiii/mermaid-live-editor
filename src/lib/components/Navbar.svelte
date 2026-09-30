@@ -17,6 +17,7 @@
   import MermaidIcon from '~icons/custom/mermaid';
   import CloseIcon from '~icons/material-symbols/close-rounded';
   import GithubIcon from '~icons/mdi/github';
+  import { isDesktop } from '$lib/util/desktop';
   import DropdownNavMenu from './DropdownNavMenu.svelte';
 
   interface Props {
@@ -88,7 +89,7 @@
       {#if !mobileToggle}
         Mermaid
       {/if}
-      Live Editor
+      {isDesktop() ? 'View Edit' : 'Live Editor'}
     </a>
   </div>
   <div
